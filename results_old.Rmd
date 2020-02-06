@@ -1,0 +1,523 @@
+---
+title: "Untitled"
+author: "Salil V Deo"
+date: "November 22, 2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+# code for AMI and home health care and readmissions
+# continue from the stata dataset developed 
+
+library(haven);library(survey);library(srvyr);library(tidyverse);
+library(MASS);library(arm);library(magrittr)
+
+setwd("E:\\stemi_readmit\\")
+
+# get data
+
+df = read_stata("ami_readmit1.dta")
+
+str(df)
+
+keep = c("age", "aweekend", "died", "discwt", "dispuniform",  "dx1", "dx2", "dx3", "dx4", "dx5", "dx6", "dx7", "dx8", 
+"dx9", "dx10",  "elective", "female", 
+"hosp_nrd", "key_nrd", "los", 
+"nrd_stratum",  "pay1", "pr1", "pr2", "pr3", 
+"pr4", "pr5", "pr6", "pr7", "pr8", "pr9", "pr10",  "totchg", 
+"year", "zipinc_qrtl",  
+"cm_aids", "cm_alcohol", "cm_anemdef", "cm_arth", "cm_bldloss", 
+"cm_chf", "cm_chrnlung", "cm_coag", "cm_depress", "cm_dm", "cm_dmcx", 
+"cm_drug", "cm_htn_c", "cm_hypothy", "cm_liver", "cm_lymph", 
+"cm_lytes", "cm_mets", "cm_neuro", "cm_obese", "cm_para", "cm_perivasc", 
+"cm_psych", "cm_pulmcirc", "cm_renlfail", "cm_tumor", "cm_ulcer", 
+"cm_valve", "cm_wghtloss", "hosp_bedsize", "hosp_urcat4", "hosp_ur_teach", 
+ "indexevent", "daystoreadmission", "readmit", "cabg", "pci", 
+"smoke", "dyslip", "priormi", "priorpci", "priorcabg", "carotid", 
+"priorstroke", "prioricd")
+
+df2 = df[,(keep)]
+
+glimpse(df2)
+
+df2$discharge[df2$dispuniform == 1]<- "home"
+df2$discharge[df2$dispuniform == 5]<- "hhc"
+
+thrombo <- as.character(c("9910")) # smoker
+
+df2$thrombo <- apply(df2[paste0("pr", 1:10)], 1, 
+                     function(x) any(x %in% thrombo)) %>% 
+  as.numeric()
+
+table(df2$thrombo)
+
+
+keep2 = c("age", "aweekend", "died", "discwt", "dispuniform", 
+"elective", "female", "hosp_nrd", "key_nrd", "los", "nrd_stratum", 
+"pay1",  "zipinc_qrtl",  "cm_chf", "cm_chrnlung", 
+ "cm_dm", "cm_dmcx",  "cm_htn_c", "cm_liver",
+ "cm_renlfail",  "hosp_bedsize", "hosp_urcat4", "hosp_ur_teach", 
+"indexevent", "daystoreadmission", "readmit", "cabg", "pci", 
+"smoke", "dyslip", "priormi", "priorpci", "priorcabg", "carotid", 
+"priorstroke", "prioricd", "discharge", "thrombo")
+
+df3 = df2[,c(keep2)]
+
+dmiss = map(df3, ~sum(is.na(.))) # determine missing data
+
+# only zipinc_qrtl 1181 , pay1 91 elective 87 missing 
+
+# create and clean some variables prior to analysis
+
+table(df3$pay1)
+
+df3$pay1 = as.factor(df3$pay1)
+
+df3$insu[df3$pay1 == "1"]<- "medicare"
+df3$insu[df3$pay1 == "2"]<- "medicaid"
+df3$insu[df3$pay1 == "3"] <- "private"
+df3$insu[df3$pay1 == "4"]<- "others"
+df3$insu[df3$pay1 == "5"]<- "others"
+df3$insu[df3$pay1 == "6"]<- "others"
+
+table(df3$insu) # primary insurance 
+
+
+# urban/rural
+
+df3$hosp_loc[df3$hosp_ur_teach == "1"]<- "urban"
+df3$hosp_loc[df3$hosp_ur_teach == "0"]<- "urban"
+df3$hosp_loc[df3$hosp_ur_teach == "2"]<- "rural"
+
+
+table(df3$hosp_loc) # urban/rural
+
+table(df3$hosp_bedsize) # hospital bed-size
+```
+
+
+
+vars = c("age", "aweekend",  "elective", 
+  "female",   
+  "zipinc_qrtl", "cm_chf", "cm_chrnlung", "cm_dm", "cm_dmcx", "cm_htn_c", 
+  "cm_liver", "cm_renlfail", "hosp_bedsize", 
+  "indexevent",  "readmit", "cabg", "pci", 
+  "smoke", "dyslip", "priormi", "priorpci", "priorcabg", "carotid", 
+  "priorstroke", "prioricd", "discharge", "thrombo", "insu", "hosp_loc")
+
+factorvars =  c( "aweekend",  "elective", 
+"female",  "zipinc_qrtl", "cm_chf", "cm_chrnlung", "cm_dm", "cm_dmcx", "cm_htn_c", 
+"cm_liver", "cm_renlfail", "hosp_bedsize", 
+ "indexevent", "readmit", "cabg", "pci", 
+ "smoke", "dyslip", "priormi", "priorpci", "priorcabg", "carotid", 
+"priorstroke", "prioricd", "discharge", "thrombo", "insu", "hosp_loc")
+
+```{r}
+options(survey.lonely.psu = "adjust")
+
+amis = survey::svydesign(data = df3, strata = ~nrd_stratum,
+id = ~hosp_nrd, weight = ~discwt, nest = T)
+```
+
+
+```{r}
+# for cabg
+
+cabgmi = subset(amis, cabg == 1)
+
+cabg = prop.table(svytable(~readmit + discharge, design = cabgmi), 2)
+
+svychisq(~readmit + discharge, design = cabgmi)
+
+# for pci
+
+pcimi = subset(amis, pci == 1)
+
+pci = prop.table(svytable(~readmit + discharge, design = pcimi), 2)
+
+svychisq(~readmit + discharge, design = pcimi)
+
+pci
+
+
+# bar plot
+
+barp = read_csv("barp.csv")
+
+library(ggthemes)
+
+p = ggplot(data = barp, aes(x = Procedure, y = Percentage, fill = Category), alpha = 0.5) + geom_bar(stat = "identity", position = "dodge", size = 10) + scale_fill_grey(start = 0.4, end = 0.8)
+
+p2 = p + ggthemes::theme_clean() + xlab("Procedure Performed") + ylab("Percentage of Patients Readmitted")
+
+```
+
+
+# t1 = tableone::svyCreateTableOne(data = amis, vars = vars,
+# factorVars = factorvars, strata = "discharge") # create tableone for entire
+# data
+
+# table1 = print(t1)
+
+# write.csv(table1, "table1.csv")
+
+# plan to do unadjusted regression for readmission with home health care.
+# then plan for propensity matching and then reanalysis.
+
+```{r}
+# unadjusted analysis
+
+dfs = survey::svydesign(data = df3, 
+strata = ~nrd_stratum, 
+weight = ~discwt, ids  = ~hosp_nrd, nest = T)
+
+options(survey.lonely.psu = "adjust")
+
+# unadjusted survey regression for readmission
+
+readmit_r = svyglm(readmit ~ discharge, design = dfs)
+
+summary(readmit_r)
+
+exp(coef(readmit_r))
+exp(confint(readmit_r))
+
+
+### peforming propensity matched analysis for readmission after home health care
+
+
+library(ggplot2); library(dplyr); library(Matching)
+library(Hmisc);  library(Epi); library(lme4)
+library(survival); library(twang); library(tableone)
+library(survey);library(tidyverse);library(magrittr)
+library(purrr);library(haven)
+
+
+library(purrr)
+
+miss = purrr::map(df3, ~sum(is.na(.)))
+
+# plan to simple imputation with adding most common category for missing data
+# insu, zipinc_qrtl, elective
+
+table(df3$insu, useNA = "ifany")
+
+table(df3$zipinc_qrtl, useNA = 'ifany')
+
+table(df3$elective, useNA = 'ifany')
+
+df3$insu[is.na(df3$insu)]<- "medicare"
+df3$elective[is.na(df3$elective)]<- 0
+df3$zipinc_qrtl[is.na(df3$zipinc_qrtl)]<- 2
+
+# no missing data now
+
+
+keep3 = c("age", "aweekend",  "discwt",  "elective", 
+  "female", "hosp_nrd", "key_nrd", "nrd_stratum",  
+  "zipinc_qrtl", "cm_chf", "cm_chrnlung", "cm_dm", "cm_dmcx", "cm_htn_c", 
+  "cm_liver", "cm_renlfail", "hosp_bedsize",  
+   "readmit", "cabg", "pci", 
+  "smoke", "dyslip", "priormi", "priorpci", "priorcabg", "carotid", 
+  "priorstroke", "prioricd", "discharge", "thrombo", "insu", "hosp_loc")
+
+propdata = df3[,c(keep3)]
+
+propdata$disc_n[propdata$discharge == "home"]<- 0
+propdata$disc_n[propdata$discharge == "hhc"]<- 1
+
+props = survey::svydesign(data = propdata, 
+strata = ~nrd_stratum, 
+weight = ~discwt, ids  = ~hosp_nrd, nest = T)
+
+# create logistic regression model for propensity for use of home health care
+
+psmodel = svyglm(disc_n ~ age + factor(aweekend) + factor(female) + 
+factor(zipinc_qrtl) + factor(cm_chf) + factor(cm_chrnlung) + factor(cm_dm) +
+factor(cm_dmcx) + factor(cm_renlfail) + factor(cm_liver) + factor(cm_htn_c) + factor(hosp_bedsize) +
+factor(cabg) + factor(pci) + factor(priormi) + factor(priorpci) + 
+factor(priorcabg) + factor(priorstroke) + factor(prioricd) + factor(thrombo) +
+insu + hosp_loc, design = props, family = "binomial")
+
+summary(psmodel)
+
+
+propdata$ps <- psmodel$fitted
+propdata$linps <- psmodel$linear.predictors
+
+library(ggthemes)
+
+p = ggplot(propdata, aes(x = ps, fill = discharge)) +
+  geom_density(alpha=0.3) +
+  labs(x = "Propensity Score", colour="Type", shape="Type",
+       y = "Distribution Density") + ylim(0,5) + 
+  ggthemes::theme_clean() + 
+  scale_fill_manual(values = c("blue","red"))
+
+
+X <- propdata$linps
+Tr <- as.logical(propdata$disc_n)
+
+
+match <- Match(Tr=Tr, X=X, M = 1, replace=FALSE, ties=FALSE,
+               caliper = 0.5)
+summary(match)
+
+
+set.seed(50001) # set seed for bootstrap assesssments - not critical
+mb1 <- MatchBalance(disc_n ~ age + factor(aweekend) + factor(female) + 
+                      factor(zipinc_qrtl) + factor(cm_chf) + factor(cm_chrnlung) + factor(cm_dm) +
+                      factor(cm_dmcx) + factor(cm_renlfail) + factor(cm_liver) + factor(cm_htn_c) + factor(hosp_bedsize) +
+                      factor(cabg) + factor(pci) + factor(priormi) + factor(priorpci) + 
+                      factor(priorcabg) + factor(priorstroke) + factor(prioricd) + factor(thrombo) +
+                      insu + hosp_loc,data = propdata,
+                    match.out = match, nboots=500)
+
+
+covnames <- c("Age", "Weekend admit", "Female", "Median income",
+"CHF", "COPD", "DM", "Comp_DM", "CKD", "Liver disease","HTN", "Bedsize",
+"CABG", "PCI", "Prior MI", "Prior PCI", "Prior CABG", "Prior Stroke", "Prior ICD", "Thrombolysis",
+"Insurance", "Hospital Location")
+
+
+
+pre.szd <- NULL; post.szd <- NULL
+for(i in 1:length(covnames)) {
+  pre.szd[i] <- mb1$BeforeMatching[[i]]$sdiff.pooled
+  post.szd[i] <- mb1$AfterMatching[[i]]$sdiff.pooled
+}
+
+temp <- data.frame(pre.szd, post.szd, row.names=covnames)
+print(round(temp,1))
+
+              
+
+temp <- data.frame(pre.szd, post.szd, row.names=covnames)
+tempsort <- temp[with(temp, order(abs(pre.szd))),]
+high <- max(max(abs(pre.szd)), max(abs(post.szd)), 0.1)
+
+dotchart(abs(tempsort$pre.szd), pch="", 
+         xlim=c(0, 1.05*high), labels=row.names(tempsort), cex= 1,fontsize = 5,
+         main="Absolute Standardized Difference", 
+         xlab="Absolute Standardized Difference (%)")
+points(abs(tempsort$pre.szd), seq(1:length(tempsort$pre.szd)), 
+       pch=15, col="gray", cex=1)
+points(abs(tempsort$post.szd), seq(1:length(tempsort$post.szd)), 
+       pch=19, col="red", cex=1)
+abline(v=0, lty=1)
+abline(v=10, lty=2, col="purple")
+legend("bottomright", legend = c("Before Match", "After Match"), 
+       col=c("gray", "red"), text.col=c("gray", "red"), 
+       bty="o", pch = c(15, 19))
+
+```
+
+
+```{r}
+temp <- data.frame(pre.szd, post.szd, row.names=covnames)
+
+
+temp1 <- data.frame(pre.szd, post.szd, covnames)#combine the 3 variable into a data.base.
+library(dplyr)
+temp1<-temp1 %>% arrange(pre.szd)%>% mutate (covnames= factor(covnames,covnames)) #use dplyr mutate and arrange function to sort the covariates by pre.szd.
+library(reshape2)
+temp2<-melt(temp1,measure.vars=c("pre.szd","post.szd")) ##melt the database base to get a two level variable ("pre.szd","post.szd") that I will use in the plot.
+
+p<-ggplot(temp2, aes(value, covnames, shape= variable,colour=variable)) ## the first step is tell ggplot that I want to use temp2 database to plot the (value) variable on x axis, covnames on y axis. Then I tell it to differentiate between the plotted geom based on (variable)  which is two level categorical variable ("pre.szd","post.szd").
+
+p<-p +geom_point(size =3)+theme_bw()+labs(title="Standardized Difference Plot")+labs(x="Standardized Difference (%)")+labs(y="Covariates") # here, I tell ggplot that I want the values to be plotted as point (geom_point), I chose size 3, I change the background theme to black and white, then I label the axes.
+
+p<-p+theme(legend.title=element_blank())+scale_colour_manual(values = c("pre.szd"="red", "post.szd"="blue"),labels=c("Before Matching","After Matching"))+scale_shape_discrete(labels=c("Before Matching","After Matching")) ## here, I drop the legend title, I assign specific colors to the points, I rename the legend's labels.
+
+p<-p + theme(legend.justification=c(1,0), legend.position=c(1,0)) + geom_vline(xintercept = 0,colour="blue") + geom_vline(xintercept = c(-10,10) ,colour="blue",linetype = "longdash") # I reposition the legend to right lower corner, I add the vertical lines.
+
+
+p2 = p+ coord_cartesian(xlim = c(-60, 50)) + scale_x_continuous(breaks = seq(from = -200, to = 200, by = 10)) # Finally, I change x-axis limits and change the breaks to every 10.
+```
+
+
+
+```{r}
+
+
+matches <- factor(rep(match$index.treated, 2))
+
+data.m1sample <- cbind(matches, 
+propdata[c(match$index.control, match$index.treated),])
+
+
+data.m1sample = tbl_df(data.m1sample) # create tibble
+```
+### write_csv(data.m1sample, "propdata.csv")
+
+
+vars = c("age", "aweekend",  "elective", 
+  "female",   
+  "zipinc_qrtl", "cm_chf", "cm_chrnlung", "cm_dm", "cm_dmcx", "cm_htn_c", 
+  "cm_liver", "cm_renlfail", "hosp_bedsize", 
+  "indexevent",  "readmit", "cabg", "pci", 
+  "smoke", "dyslip", "priormi", "priorpci", "priorcabg", "carotid", 
+  "priorstroke", "prioricd", "discharge", "thrombo", "insu", "hosp_loc")
+
+factorvars =  c( "aweekend",  "elective", 
+"female",  "zipinc_qrtl", "cm_chf", "cm_chrnlung", "cm_dm", "cm_dmcx", "cm_htn_c", 
+"cm_liver", "cm_renlfail", "hosp_bedsize", 
+ "indexevent", "readmit", "cabg", "pci", 
+ "smoke", "dyslip", "priormi", "priorpci", "priorcabg", "carotid", 
+"priorstroke", "prioricd", "discharge", "thrombo", "insu", "hosp_loc")
+
+
+```{r}
+
+options(survey.lonely.psu = "adjust")
+
+props = survey::svydesign(data = data.m1sample, strata = ~nrd_stratum,
+id = ~hosp_nrd, weight = ~discwt, nest = T)
+```
+t2 = tableone::svyCreateTableOne(data = props, vars = vars,
+factorVars = factorvars, strata = "discharge") # create tableone for entire
+# data
+
+table2 = print(t2)
+
+write.csv(table2, "table2.csv")
+
+
+```{r}
+
+
+#### 
+# including all variables tha are different 
+
+R = svyglm(readmit ~ factor(disc_n) + priorcabg + smoke + dyslip + elective + age, design = props,
+           family = "binomial")
+
+summary(R)
+
+exp(coef(R))
+exp(confint(R))
+
+
+             
+#### the model above is the one written and used in the paper 
+# it adjusts further for all the variables that were different in table 2.
+
+
+
+
+```
+
+
+```{r}
+
+# descriptive statistics of the whole cohort 
+# df3 is the data
+
+options(survey.lonely.psu = "adjust")
+
+desc = survey::svydesign(data = df3, strata = ~nrd_stratum,
+id = ~hosp_nrd, weight = ~discwt, nest = T)
+
+svymean(~age, desc)
+
+svymean(~female, desc)
+
+svymean(~cm_renlfail, desc)
+
+svymean(~cm_dm, desc)
+
+svymean(~cm_dmcx, desc)
+
+svymean(~priormi, desc)
+
+svymean(~priorcabg, desc)
+
+svymean(~priorpci, desc)
+
+svymean(~cabg, desc)
+
+svymean(~pci, desc)
+
+svymean(~thrombo, desc)
+
+svymean(~dyslip, desc)
+
+svymean(~cm_htn_c, desc)
+
+table(df3$hosp_loc)
+
+prop.table((svytable(~hosp_loc, desc)))
+
+prop.table(svytable(~discharge, desc))
+
+svymean(~readmit, desc)
+```
+
+
+```{r}
+
+
+# discuss Dr Kapadia`s question: Does CABG confound findings here ?
+# CABG has been adjusted for in the propensity model, so the final result considers CABG also
+# CABG only cohort, HHC and readmission. ? adjust for other factors ?
+# PCI only cohort, HHC and readmission. - ? adjust for other factors ?
+
+# initially create a seperate table for only patients with PCI done
+
+dfpci = data.m1sample %>% filter(pci == 1)
+str(dfpci)
+
+# create tableone for this data
+
+vars = c("age", "aweekend",  "elective", 
+  "female",   
+  "zipinc_qrtl", "cm_chf", "cm_chrnlung", "cm_dm", "cm_dmcx", "cm_htn_c", 
+  "cm_liver", "cm_renlfail", "hosp_bedsize", 
+  "indexevent",  "readmit", "cabg", "pci", 
+  "smoke", "dyslip", "priormi", "priorpci", "priorcabg", "carotid", 
+  "priorstroke", "prioricd", "discharge", "thrombo", "insu", "hosp_loc")
+
+factorvars =  c( "aweekend",  "elective", 
+"female",  "zipinc_qrtl", "cm_chf", "cm_chrnlung", "cm_dm", "cm_dmcx", "cm_htn_c", 
+"cm_liver", "cm_renlfail", "hosp_bedsize", 
+ "indexevent", "readmit", "cabg", "pci", 
+ "smoke", "dyslip", "priormi", "priorpci", "priorcabg", "carotid", 
+"priorstroke", "prioricd", "discharge", "thrombo", "insu", "hosp_loc")
+
+
+options(survey.lonely.psu = "adjust")
+
+pci_survey = survey::svydesign(data = dfpci, strata = ~nrd_stratum,
+id = ~hosp_nrd, weight = ~discwt, nest = T)
+
+table_pci = tableone::svyCreateTableOne(data = pci_survey , vars = vars,
+factorVars = factorvars, strata = "discharge") # create tableone for entire
+# data
+
+table2 = print(table_pci)
+
+# from this table the differences are:
+# elective, cm_chf, cm_renlfail, hosp_bedsize, smoke, dyslip, priorcabg
+
+
+pcionly = svyglm(readmit ~ discharge + priorcabg + smoke + dyslip + elective + cm_chf +
+                   cm_renlfail + hosp_bedsize, design = pci_survey,
+           family = "binomial")
+
+summary(pcionly)
+
+exp(coef(pcionly))
+exp(confint(pcionly))
+
+
+
+```
+
+
+
+
