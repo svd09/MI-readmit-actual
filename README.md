@@ -30,5 +30,3 @@ OH*
 
 This repository contains the code used in the analysis for this paper.
 The repository does not contain any data.
-
-<img src="barplot.png" style="width:30.0%" />

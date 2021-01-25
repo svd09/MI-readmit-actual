@@ -46,4 +46,4 @@ This repository contains the code used in the analysis for this paper. The repos
 
 
 
-![](barplot.png){width=30%}
+
