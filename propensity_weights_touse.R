@@ -4,7 +4,7 @@ library(tidyverse);library(tidylog);library(haven);library(survey);
 library(srvyr);library(skimr);library(Matching);library(MatchIt);
 library(cobalt);library(twang);library(MASS);library(car);library(lme4);library(nlme);
 library(psych);library(magrittr);library(mosaic);library(cobalt);
-library(Weightit)
+library(WeightIt);library(broom)
 
 # get data 
 
@@ -39,6 +39,15 @@ psmodel = glm(hhc ~ hosp_nrd + age + aweekend + female
       dys + priormi + treatment + priorpci + car +
       pstroke, data = df6, family = "binomial"(link = "logit"))
               
+
+#- to create forest plot for the OR for HHC use
+tidy(psmodel)
+
+or = exp(coef(psmodel))
+ci = exp(confint(psmodel))
+psmodel.t = broom::tidy(psmodel)
+
+
 
 
 df6$ps=fitted(psmodel) # get the propensity scores

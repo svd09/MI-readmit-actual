@@ -1,0 +1,49 @@
+> exp(coef(psmodel))
+     (Intercept)         hosp_nrd              age         aweekend 
+     0.007281391      0.999985182      1.087355504      1.066007140 
+          female           cm_chf      cm_chrnlung         diabetes 
+     1.489422753      5.892905237      1.491322618      1.327127233 
+        cm_htn_c       cm_hypothy         cm_liver         cm_obese 
+     0.802382628      1.085139138      1.448321389      1.088326787 
+     cm_perivasc      cm_renlfail           cancer    hosp_locurban 
+     1.310720456      1.796469588      1.622945548      0.971546432 
+    insumedicare       insuothers      insuprivate            smoke 
+     0.976302480      0.465861782      0.530069163      0.601290232 
+        year2013         year2014              dys          priormi 
+     0.275271481      0.360289182      0.509709985      0.759308774 
+treatmentmedical     treatmentpci         priorpci              car 
+     0.373157962      0.107689580      0.784053143      1.026709822 
+         pstroke 
+     1.106197755 
+> exp(confint(psmodel))
+Waiting for profiling to be done...
+                        2.5 %     97.5 %
+(Intercept)      0.0008822053 0.06007738
+hosp_nrd         0.9999623741 1.00000799
+age              1.0848961888 1.08983036
+aweekend         1.0203309419 1.11358453
+female           1.4296149080 1.55169645
+cm_chf           5.2172829329 6.65888645
+cm_chrnlung      1.4200952645 1.56587968
+diabetes         1.2715843297 1.38501281
+cm_htn_c         0.7676736460 0.83872362
+cm_hypothy       1.0238882614 1.14973102
+cm_liver         1.2268628090 1.70321355
+cm_obese         1.0223622699 1.15804025
+cm_perivasc      1.2365344469 1.38896946
+cm_renlfail      1.7094284341 1.88773372
+cancer           1.4532327613 1.81039758
+hosp_locurban    0.8971490593 1.05281389
+insumedicare     0.8878235533 1.07493986
+insuothers       0.4084741712 0.53091528
+insuprivate      0.4782662144 0.58801845
+smoke            0.5708528254 0.63314943
+year2013         0.0355686541 2.12966718
+year2014         0.0584610941 2.21977208
+dys              0.4883557133 0.53192135
+priormi          0.7041231692 0.81821081
+treatmentmedical 0.3476149946 0.40063037
+treatmentpci     0.1005442665 0.11536309
+priorpci         0.7105022886 0.86416571
+car              0.8500054954 1.23535360
+pstroke          1.0108696643 1.20951076
