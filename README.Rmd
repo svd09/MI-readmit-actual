@@ -1,0 +1,47 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+library(badger)
+```
+
+#  Home health care after Discharge is associated with lower readmission rates for patients with acute Myocardial Infarction.
+
+
+
+`r badger::badge_doi("10.1097/MCA.0000000000001000", "yellow") `
+`r badge_custom("Louis Stokes Cleveland VA Medical Center","Cleveland VA CV Research Group","blue")`
+
+
+
+*Sheikh MA ^1^, Ngendahimana D ^2^ , Deo SV ^3^, Raza S ^4^, Altarabsheh SE ^5^, Reed GW ^6^, Kalra A ^6^, Cmolik B ^3^, Kapadia S ^6^, Eagle KA ^7^* 
+
+
+*Affiliations*
+
+*1 - Department of Internal Medicine, University of Michigan, MI*
+
+*2 - PTSD Research Center, VA Medical Center, Palo Alto, CA*
+
+*3 - Louis Stokes Cleveland VA Medical Center, Cleveland OH*
+
+*4 - Precision Analytics, Boston, MA*
+
+*5 - Queen Alia Heart Institute, Amman, Jordan*
+
+*6 - Department of Cardiovascular Medicine, Cleveland Clinic, Cleveland, OH*
+
+*7 - Department of Cardiovascular Medicine, University of Michigan, MI*
+
+
+This repository contains the code used in the analysis for this paper. The repository does not contain any data.
+
+
